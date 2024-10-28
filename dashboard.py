@@ -12,6 +12,8 @@ from streamlit_folium import st_folium
 import plotly.express as px
 
 # Functions
+
+
 def target_lines(input_value,perc_of_games):
     target_line = alt.Chart(pd.DataFrame({'y': [input_value], 'label': [f'Target: {input_value}, {perc_of_games} of games']})).mark_rule(color='purple').encode(
                 y='y:Q'
@@ -28,6 +30,10 @@ def target_lines(input_value,perc_of_games):
             size=alt.value(16)
         )
     return target_line, target_label
+# Function to highlight rows where NFL_Team matches the selected team
+def highlight_team(row):
+    color = f'background-color: yellow' if row['NFL_Team'] == team_selected else ''
+    return [color] * len(row)
 
 # grab current date
 current_date = datetime.now()
@@ -180,7 +186,7 @@ if page =='Home':
         page1_selection = st.selectbox("Options", page1_options)
     with middle2:
         # Display the map and capture the map data
-        returned_map_data = st_folium(m, width=1200, height=400)
+        returned_map_data = st_folium(m, width=1200, height=370)
             # Check if a marker was clicked
         if returned_map_data["last_object_clicked"]:
             lat = returned_map_data["last_object_clicked"]['lat']
@@ -258,10 +264,26 @@ with top1:
 
 ### TOP TEN LISTS ###
 df_sum = df.groupby(['Player','year']).sum().reset_index()
+df_sum = df_sum.rename({'Passing_Int':'Int',
+                        'Passing_TD':'Pass_TD'
+                        }, axis=1)
 df_sum = df_sum[df_sum['year']==str(new_year)]
 df_sum['Team'] = df_sum['Team'].str[:3]
 
+### AVERAGE Df
+df_avg = df.groupby(['Player','Team','year']).mean(numeric_only=True).reset_index()
+df_avg = df_avg.rename({'Passing_Yds':'Avg_Pass_Yds',
+                        'Passing_Rate':'Avg_Passer_Rating',
+                        'Rushing_Yds':'Avg_Rush_Yds',
+                        'Receiving_Yds':'Avg_Rec_Yds'
+                        }, axis=1)
+df_avg = df_avg[df_avg['year']==str(new_year)]
+df_avg['Avg_Pass_Yds'] = df_avg['Avg_Pass_Yds'].apply(lambda x: round(x,1))
+df_avg['Avg_Passer_Rating'] = df_avg['Avg_Passer_Rating'].apply(lambda x: round(x,1))
+df_avg['Avg_Rush_Yds'] = df_avg['Avg_Rush_Yds'].apply(lambda x: round(x,1))
+df_avg['Avg_Rec_Yds'] = df_avg['Avg_Rec_Yds'].apply(lambda x: round(x,1))
 
+df_sum = pd.merge(df_sum, df_avg[['Player','Team','Avg_Pass_Yds', 'Avg_Passer_Rating', 'Avg_Rush_Yds','Avg_Rec_Yds']], how='left',on=['Player','Team'])
 
 ### PROJECTED STATS ###
 max_week = df.groupby(['Team','year']).max().reset_index()
@@ -290,18 +312,19 @@ col1, col2, col3, col4= st.columns([0.5,2,2,2])
 #######################################################################
 #######################################################################   
 if page =='Home':
-    st.write("Top Players")
-    home_col1, home_col2, home_col3, home_col4= st.columns([2.5,2.5,2.5,2.5])
+    # st.write("Top Players")
+    home_col1, home_col2, home_col3= st.columns([1,5,5])
 
     with home_col1:
-        st.write("Passing")
+        # st.write("Passing")
+        
         passing_top_df = df_sum.sort_values('Passing_Yds',ascending=False).reset_index()
         passing_top_df = passing_top_df.rename({"Passing_Yds":'Pass_Yds'},axis=1)
 
         passing_top_df['Rank'] = (passing_top_df.index + 1).astype(str) + ': ' + passing_top_df['Player']
-        st.dataframe(passing_top_df[['Rank','Team','Pass_Yds','Projected_Pass_Yds']].set_index('Rank'),
-                     use_container_width=True,
-                     height=145)
+        # st.dataframe(passing_top_df[['Rank','Team','Pass_Yds','Projected_Pass_Yds']].set_index('Rank'),
+        #              use_container_width=True,
+        #              height=145)
         
         #### CUMULATIVE PASSING YARDS ####
         passing_current = passing.loc[passing['year']==str(new_year)]
@@ -320,6 +343,9 @@ if page =='Home':
             temp_df['current_week'] = week  # Store the current frame week
             passing_expanded = pd.concat([passing_expanded, temp_df])
 
+        passing_expanded_sorted = passing_expanded.sort_values(by='cumulative_yards', ascending=False)
+        sorted_players = passing_expanded_sorted['Player'].unique()
+
         # Create an animated line chart using Plotly Express
         fig_passing = px.line(
             passing_expanded,
@@ -330,7 +356,8 @@ if page =='Home':
             animation_frame='current_week',
             markers=True,
             title='Cumulative Passing Yards Over Weeks by Player',
-            labels={'week': 'Week', 'cumulative_yards': 'Cumulative Passing Yards'}
+            labels={'week': 'Week', 'cumulative_yards': 'Cumulative Passing Yards'},
+            category_orders={'Player': sorted_players}
         )
 
         passing_current_max_week = passing_current['week'].max()+1
@@ -340,21 +367,22 @@ if page =='Home':
             yaxis=dict(range=[0, passing_current_max_yards], title='Cumulative Passing Yards'),
             xaxis=dict(range=[0, passing_current_max_week], title='Week'),
             showlegend=True,
-            width=600
+            width=800,
+            height= 400
         )
 
 
-        st.plotly_chart(fig_passing)        
+        # st.plotly_chart(fig_passing)        
 
     with home_col2:
-        st.write("Rushing")
+        # st.write("Rushing")
         rushing_top_df = df_sum.sort_values('Rushing_Yds',ascending=False).reset_index()
         rushing_top_df = rushing_top_df.rename({"Rushing_Yds":'Rush_Yds'},axis=1)
 
         rushing_top_df['Rank'] = (rushing_top_df.index + 1).astype(str) + ': ' + rushing_top_df['Player']
-        st.dataframe(rushing_top_df[['Rank','Team','Rush_Yds','Projected_Rush_Yds']].set_index('Rank'),
-                     use_container_width=True,
-                     height=145)
+        # st.dataframe(rushing_top_df[['Rank','Team','Rush_Yds','Projected_Rush_Yds']].set_index('Rank'),
+        #              use_container_width=True,
+        #              height=145)
         
         #### CUMULATIVE RUSHING YARDS ####
         rushing_current = rushing.loc[rushing['year']==str(new_year)]
@@ -372,7 +400,8 @@ if page =='Home':
             temp_df = rushing_current[rushing_current['week'] <= week].copy()
             temp_df['current_week'] = week  # Store the current frame week
             rushing_expanded = pd.concat([rushing_expanded, temp_df])
-
+        rushing_expanded_sorted = rushing_expanded.sort_values(by='cumulative_yards', ascending=False)
+        sorted_players = rushing_expanded_sorted['Player'].unique()
         # Create an animated line chart using Plotly Express
         fig_rushing = px.line(
             rushing_expanded,
@@ -383,7 +412,8 @@ if page =='Home':
             animation_frame='current_week',
             markers=True,
             title='Cumulative Rushing Yards Over Weeks by Player',
-            labels={'week': 'Week', 'cumulative_yards': 'Cumulative Rushing Yards'}
+            labels={'week': 'Week', 'cumulative_yards': 'Cumulative Rushing Yards'},
+            category_orders={'Player': sorted_players}
         )
 
         rushing_current_max_week = rushing_current['week'].max()+1
@@ -393,21 +423,22 @@ if page =='Home':
             yaxis=dict(range=[0, rushing_current_max_yards], title='Cumulative Rushing Yards'),
             xaxis=dict(range=[0, rushing_current_max_week], title='Week'),
             showlegend=True,
-            width=600
+            width=800,
+            height=400
         )
 
 
-        st.plotly_chart(fig_rushing)  
+        # st.plotly_chart(fig_rushing)  
 
     with home_col3:
-        st.write("Receiving")
+        # st.write("Receiving")
         receiving_top_df = df_sum.sort_values('Receiving_Yds',ascending=False).reset_index()
         receiving_top_df = receiving_top_df.rename({"Receiving_Yds":'Rec_Yds'},axis=1)
 
         receiving_top_df['Rank'] = (receiving_top_df.index + 1).astype(str) + ': ' + receiving_top_df['Player']
-        st.dataframe(receiving_top_df[['Rank','Team','Rec_Yds','Projected_Rec_Yds']].set_index('Rank'),
-                     use_container_width=True,
-                     height=145)
+        # st.dataframe(receiving_top_df[['Rank','Team','Rec_Yds','Projected_Rec_Yds']].set_index('Rank'),
+        #              use_container_width=True,
+        #              height=145)
         
        #### CUMULATIVE RECEIVING YARDS ####
         rec_current = receiving.loc[receiving['year']==str(new_year)]
@@ -426,6 +457,10 @@ if page =='Home':
             temp_df['current_week'] = week  # Store the current frame week
             rec_expanded = pd.concat([rec_expanded, temp_df])
 
+        rec_expanded_sorted = rec_expanded.sort_values(by='cumulative_yards', ascending=False)
+        sorted_players = rec_expanded_sorted['Player'].unique()
+        # rec_expanded = rec_expanded.sort_values(by='cumulative_yards', ascending=True)
+
         # Create an animated line chart using Plotly Express
         fig_rec = px.line(
             rec_expanded,
@@ -436,7 +471,8 @@ if page =='Home':
             animation_frame='current_week',
             markers=True,
             title='Cumulative Receiving Yards Over Weeks by Player',
-            labels={'week': 'Week', 'cumulative_yards': 'Cumulative Receiving Yards'}
+            labels={'week': 'Week', 'cumulative_yards': 'Cumulative Receiving Yards'},
+            category_orders={'Player': sorted_players}
         )
 
         rec_current_max_week = rec_current['week'].max()+1
@@ -446,26 +482,210 @@ if page =='Home':
             yaxis=dict(range=[0, rec_current_max_yards], title='Cumulative Receiving Yards'),
             xaxis=dict(range=[0, rec_current_max_week], title='Week'),
             showlegend=True,
-            width=600
+            width=800,
+            height=400
         )
 
 
-        st.plotly_chart(fig_rec) 
-    with home_col4:
-        st.write("Touchdowns")
-        rush_rec_top_df = df_sum.sort_values('Rushing_Receiving_TD',ascending=False).reset_index()
-        rush_rec_top_df['Rank'] = (rush_rec_top_df.index + 1).astype(str) + ': ' + rush_rec_top_df['Player']
-        rush_rec_top_df = rush_rec_top_df.rename({"Rushing_Receiving_TD":'TDs'},axis=1)
-        st.dataframe(rush_rec_top_df[['Rank','Team','TDs','Projected_TDs']].set_index('Rank'),
-                     use_container_width=True,
-                     height=145)
+        # st.plotly_chart(fig_rec) 
         
-    with middle3:
-        if page1_selection =='Passing':
+    if page1_selection =='Passing':
+        with middle3:
+            passing_top_df['NFL_Team'] = passing_top_df['Team'].map(real_teams)
+            # passing_top_df['color'] = passing_top_df['team_to_use'].apply(lambda x: team_color if x == team_selected else 'darkgray')
+
+            color_condition = alt.condition(
+                    alt.datum.NFL_Team == team_selected,  # Condition: Team matches team_selected
+                    alt.value(team_color),            # If True: Use team_color
+                    alt.value('darkgrey')             # If False: Use dark grey
+                    )
+
+            passing_top = pd.concat([passing_top_df.iloc[:5],passing_top_df.loc[passing_top_df['NFL_Team']== team_selected]],axis=0)
+            passing_top = passing_top.drop_duplicates() # drop duplicates if they are already in df
+            passing_top = passing_top[passing_top['Pass_Yds']>0]
+
+            player_breakdown_projected_passing = alt.Chart(passing_top).mark_bar().encode(
+                x=alt.X('sum(Projected_Pass_Yds):Q',axis=alt.Axis(title=None)),
+                y=alt.Y('Player:N',sort=alt.EncodingSortField(field='Pass_Yds', op='sum', order='descending'),axis=alt.Axis(title=None)),
+                color=alt.value('lightgrey'),
+                tooltip=[
+                    'Player:N',
+                    'Projected_Pass_Yds:Q',
+                    'NFL_Team:N'
+                     ]
+            ).properties(
+                title='Cumulative Passing Yards',
+                height=400
+            )
+
+
+            player_breakdown_passing = alt.Chart(passing_top).mark_bar().encode(
+                x=alt.X('sum(Pass_Yds):Q',axis=alt.Axis(title=None)),
+                y=alt.Y('Player:N',sort=alt.EncodingSortField(field='Pass_Yds', op='sum', order='descending'),axis=alt.Axis(title=None)),
+                color=color_condition,
+                tooltip=[
+                    'Player:N',
+                    'Pass_Yds:Q',
+                    'NFL_Team:N'
+                     ]
+            )
+
+            st.altair_chart(player_breakdown_projected_passing + player_breakdown_passing, use_container_width=True)
+
+
+            passing_top_df = passing_top_df[passing_top_df['Pass_Yds']>0]
+            
+            passing_top_df_short = passing_top_df[[
+                                         'Rank',
+                                         'NFL_Team',
+                                         'Pass_Yds',
+                                         'Projected_Pass_Yds',
+                                         'Pass_TD',
+                                         'Int',
+                                         'Avg_Pass_Yds',
+                                         'Avg_Passer_Rating']].set_index('Rank')
+   
+            only_team = st.toggle("Show only selected team players")
+            if only_team:
+                passing_top_df_short = passing_top_df_short.loc[passing_top_df_short['NFL_Team']==team_selected]
+            # Apply the styling
+            styled_passing = passing_top_df_short.style.apply(highlight_team, axis=1)
+            st.dataframe(styled_passing,
+                width=900,
+                height=400)
+   
+        with middle2:
             st.plotly_chart(fig_passing)
-        elif page1_selection=='Rushing':
+            
+    elif page1_selection=='Rushing':
+        with middle3:
+            rushing_top_df['NFL_Team'] = rushing_top_df['Team'].map(real_teams)
+
+            color_condition = alt.condition(
+                    alt.datum.NFL_Team == team_selected,  # Condition: Team matches team_selected
+                    alt.value(team_color),            # If True: Use team_color
+                    alt.value('darkgrey')             # If False: Use dark grey
+                    )
+
+            rushing_top = pd.concat([rushing_top_df.iloc[:5],rushing_top_df.loc[rushing_top_df['NFL_Team']== team_selected]],axis=0)
+            rushing_top = rushing_top.drop_duplicates() # drop duplicates if they are already in df
+            rushing_top = rushing_top[rushing_top['Rush_Yds']>0]
+
+            player_breakdown_projected_rushing = alt.Chart(rushing_top).mark_bar().encode(
+                x=alt.X('sum(Projected_Rush_Yds):Q',axis=alt.Axis(title=None)),
+                y=alt.Y('Player:N',sort=alt.EncodingSortField(field='Rush_Yds', op='sum', order='descending'),axis=alt.Axis(title=None)),
+                color=alt.value('lightgrey'),
+                tooltip=[
+                    'Player:N',
+                    'Projected_Rush_Yds:Q',
+                    'NFL_Team:N'
+                     ]
+            ).properties(
+                title='Cumulative Rushing Yards',
+                height=400
+            )
+
+
+            player_breakdown_rushing = alt.Chart(rushing_top).mark_bar().encode(
+                x=alt.X('sum(Rush_Yds):Q',axis=alt.Axis(title=None)),
+                y=alt.Y('Player:N',sort=alt.EncodingSortField(field='Rush_Yds', op='sum', order='descending'),axis=alt.Axis(title=None)),
+                color=color_condition,
+                tooltip=[
+                    'Player:N',
+                    'Rush_Yds:Q',
+                    'NFL_Team:N'
+                     ]
+            )
+
+            st.altair_chart(player_breakdown_projected_rushing + player_breakdown_rushing, use_container_width=True)
+
+
+            rushing_top_df = rushing_top_df[rushing_top_df['Rush_Yds']>0]
+            rushing_top_df_short = rushing_top_df[[
+                                         'Rank',
+                                         'NFL_Team',
+                                         'Rush_Yds',
+                                         'Projected_Rush_Yds',
+                                         'Rushing_Receiving_TD',
+                                         'Avg_Rush_Yds',
+                                         'Avg_Rec_Yds']].set_index('Rank')
+
+            only_team = st.toggle("Show only selected team players")
+            if only_team:
+                rushing_top_df_short = rushing_top_df_short.loc[rushing_top_df_short['NFL_Team']==team_selected]
+
+            # Apply the styling
+            styled_rushing = rushing_top_df_short.style.apply(highlight_team, axis=1)
+        
+            st.dataframe(styled_rushing,
+                width=900,
+                height=400)
+
+        with middle2:
             st.plotly_chart(fig_rushing)
-        else:
+    else:
+        with middle3:
+            receiving_top_df['NFL_Team'] = receiving_top_df['Team'].map(real_teams)
+
+            color_condition = alt.condition(
+                    alt.datum.NFL_Team == team_selected,  # Condition: Team matches team_selected
+                    alt.value(team_color),            # If True: Use team_color
+                    alt.value('darkgrey')             # If False: Use dark grey
+                    )
+
+            receiving_top = pd.concat([receiving_top_df.iloc[:5],receiving_top_df.loc[receiving_top_df['NFL_Team']== team_selected]],axis=0)
+            receiving_top = receiving_top.drop_duplicates() # drop duplicates if they are already in df
+            receiving_top = receiving_top[receiving_top['Rec_Yds']>0]
+
+            player_breakdown_projected_receiving = alt.Chart(receiving_top).mark_bar().encode(
+                x=alt.X('sum(Projected_Rec_Yds):Q',axis=alt.Axis(title=None)),
+                y=alt.Y('Player:N',sort=alt.EncodingSortField(field='Rec_Yds', op='sum', order='descending'),axis=alt.Axis(title=None)),
+                color=alt.value('lightgrey'),
+                tooltip=[
+                    'Player:N',
+                    'Projected_Rec_Yds:Q',
+                    'NFL_Team:N'
+                     ]
+            ).properties(
+                title='Cumulative Receiving Yards',
+                height=400
+            )
+
+
+            player_breakdown_receiving = alt.Chart(receiving_top).mark_bar().encode(
+                x=alt.X('sum(Rec_Yds):Q',axis=alt.Axis(title=None)),
+                y=alt.Y('Player:N',sort=alt.EncodingSortField(field='Rec_Yds', op='sum', order='descending'),axis=alt.Axis(title=None)),
+                color=color_condition,
+                tooltip=[
+                    'Player:N',
+                    'Rec_Yds:Q',
+                    'NFL_Team:N'
+                     ]
+            )
+
+            st.altair_chart(player_breakdown_projected_receiving + player_breakdown_receiving, use_container_width=True)
+
+
+            receiving_top_df = receiving_top_df[receiving_top_df['Rec_Yds']>0]
+            receiving_top_df_short = receiving_top_df[[
+                                         'Rank',
+                                         'NFL_Team',
+                                         'Rec_Yds',
+                                         'Projected_Rec_Yds',
+                                         'Rushing_Receiving_TD',
+                                         'Avg_Rec_Yds',
+                                         'Avg_Rush_Yds']].set_index('Rank')
+   
+
+            only_team = st.toggle("Show only selected team players")
+            if only_team:
+                receiving_top_df_short = receiving_top_df_short.loc[receiving_top_df_short['NFL_Team']==team_selected]
+            # Apply the styling
+            styled_receiving = receiving_top_df_short.style.apply(highlight_team, axis=1)
+            st.dataframe(styled_receiving,
+                width=900,
+                height=400)
+        with middle2:
             st.plotly_chart(fig_rec)
 
 
