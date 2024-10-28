@@ -1,0 +1,12 @@
+pandas
+numpy
+streamlit
+os
+altair
+seaborn
+datetime
+matplotlib.pyplot
+streamlit
+folium
+streamlit_folium
+plotly.express
