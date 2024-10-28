@@ -4,7 +4,7 @@ streamlit
 altair
 seaborn
 datetime
-matplotlib.pyplot
+matplotlib
 streamlit
 folium
 streamlit_folium
