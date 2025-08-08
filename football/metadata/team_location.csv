@@ -1,0 +1,33 @@
+City,Team,Conference,latitude,longitude,zip,logo
+Chicago,Bears,NFC,41.862306,-87.616672,60602,chicago-bears-logo.png
+Cincinnati,Bengals,AFC,39.095442,-84.516039,45202,cincinnati-bengals-logo.png
+Buffalo,Bills,AFC,42.773739,-78.786978,14202,buffalo-bills-logo.png
+Denver,Broncos,AFC,39.743936,-105.020097,28037,denver-broncos-logo.png
+Cleveland,Browns,AFC,41.506022,-81.699564,44114,cleveland-browns-logo.png
+Tampa Bay,Buccaneers,NFC,27.975967,-82.50335,33607,tampa-bay-buccaneers-logo.png
+Arizona,Cardinals,NFC,33.5277,-112.262608,63102,arizona-cardinals-logo.png
+Los Angeles,Chargers,AFC,34.053587,-118.339,92103,los-angeles-chargers-logo.png
+Kansas City,Chiefs,AFC,39.048914,-94.484039,66027,kansas-city-chiefs-logo.png
+Indianapolis,Colts,AFC,39.760056,-86.163806,46201,indianapolis-colts-logo.png
+Dallas,Cowboys,NFC,32.747778,-97.092778,75203,dallas-cowboys-logo.png
+Miami,Dolphins,AFC,25.957919,-80.238842,33102,miami-dolphins-logo.png
+Philadelphia,Eagles,NFC,39.900775,-75.167453,19092,philadelphia-eagles-logo.png
+Atlanta,Falcons,NFC,33.757614,-84.400972,30303,atlanta-falcons-logo.png
+San Francisco,49ers,NFC,37.713486,-122.386256,94102,san-francisco-49ers-logo.png
+New York,Giants,NFC,40.852194,-74.076983,10021,new-york-giants-logo.png
+Jacksonville,Jaguars,AFC,30.323925,-81.637356,32099,jacksonville-jaguars-logo.png
+New York,Jets,AFC,40.812194,-74.076983,10001,new-york-jets-logo.png
+Detroit,Lions,NFC,42.340156,-83.045808,48205,detroit-lions-logo.png
+Green Bay,Packers,NFC,44.501306,-88.062167,54301,green-bay-packers-logo.png
+Carolina,Panthers,NFC,35.225808,-80.852861,28202,carolina-panthers-logo.png
+New England,Patriots,AFC,42.090925,-71.26435,58647,new-england-patriots-logo.png
+Las Vegas,Raiders,AFC,37.751411,-122.200889,94502,las-vegas-raiders-logo.png
+Los Angeles,Rams,NFC,33.953587,-118.339,63101,los-angeles-rams-logo.png
+Baltimore,Ravens,AFC,39.277969,-76.622767,21203,baltimore-ravens-logo.png
+Washington,Commanders,NFC,38.907697,-76.864517,20575,washington-commanders-logo.png
+New Orleans,Saints,NFC,29.950931,-90.081364,70112,new-orleans-saints-logo.png
+Seattle,Seahawks,NFC,47.595153,-122.331625,98102,seattle-seahawks-logo.png
+Pittsburgh,Steelers,AFC,40.446786,-80.015761,15202,pittsburgh-steelers-logo.png
+Houston,Texans,AFC,29.684781,-95.410956,77002,houston-texans-logo.png
+Tennessee,Titans,AFC,36.166461,-86.771289,37213,tennessee-titans-logo.png
+Minnesota,Vikings,NFC,44.973881,-93.258094,56760,minnesota-vikings-logo.png
