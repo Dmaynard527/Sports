@@ -100,14 +100,14 @@ def load_data():
         upcoming_games['Home_Team'] = upcoming_games['opp_market'] + ' ' + upcoming_games['opp_name']
         upcoming_games['Game'] = upcoming_games['Away_Team'] + ' @ ' + upcoming_games['Home_Team']
 
-    # season aggregates used across pages
+    # season aggrsegates used across pages
     try:
         df_aggregates = df.groupby(['Player','year']).sum().reset_index()
         df_aggregates = df_aggregates[['Player','Team','year','Passing_Yds','Rushing_Yds','Receiving_Yds']]
         df_aggregates = df_aggregates.rename({'Passing_Yds':'Season_Passing_Yds',
                                               'Rushing_Yds':'Season_Rushing_Yds',
                                               'Receiving_Yds':'Season_Receiving_Yds'}, axis=1)
-        df_aggregates['Team'] = df_aggregates['Team'].astype(str)
+        df_aggregates['Team'] = df_aggregates['Team'].str[:3]
         df = pd.merge(df, df_aggregates, how='left', on=['Team','year','Player'])
     except Exception:
         pass
