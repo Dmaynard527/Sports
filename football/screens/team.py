@@ -49,12 +49,6 @@ def render(data):
         rushing = rushing[rushing['Player'].isin(player_selection)]
         receiving = receiving[receiving['Player'].isin(player_selection)]
 
-    # # Create color mapping for players using a simple palette if available
-    # players_all = sorted(list(set(list(passing['Player'].unique()) + list(rushing['Player'].unique()) + list(receiving['Player'].unique()))))
-    # # fallback color palette
-    # palette = alt.Scale(range=['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b',
-    #                            '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'])
-
         ### ADDED INFO TO SIDEBAR ###
     qb_list = sorted(list(passing[passing['Player_Category']=='Quarterback']['Player'].unique()))
     rb_list = sorted(list(rushing[rushing['Player_Category']=='Running Back']['Player'].unique()))
@@ -77,195 +71,128 @@ def render(data):
     team_pg_height = 250
 
     # PASSING - legend (in original, empty bars used for legend)
-    with col1:
-        if not passing.empty:
-            passing_legend = alt.Chart(passing).mark_bar(opacity=0).encode(
+    def legend_chart(df, mapping, yard_type):
+        if yard_type == 'Receiving_Yds':
+            height = 250 + 150
+        else:
+            height = team_pg_height
+        title = yard_type[:-4]
+        season_label = 'Season_' + yard_type
+        if not df.empty:
+            legend = alt.Chart(df).mark_bar(opacity=0).encode(
                 x=alt.X('year_week:O',axis=alt.Axis(title=None)),
-                y='Passing_Yds:Q',
+                y=f'{yard_type}:Q',
                 color=alt.Color('Player:N', 
-                                scale=alt.Scale(domain=list(passing_mapping.keys()), 
-                                                range=list(passing_mapping.values())),
+                                scale=alt.Scale(domain=list(mapping.keys()), 
+                                                range=list(mapping.values())),
                                 legend=alt.Legend(
-                                    title="Passing",  # Custom legend title
+                                    title=f"{title}",  # Custom legend title
                                     orient='left',  # Position the legend on the left
                                     direction='vertical'  # Make the legend vertical
                                 )),
-                order=alt.Order('Season_Passing_Yds', sort='descending'),
-                tooltip=['Player', 'Season_Passing_Yds', 'week'],
+                order=alt.Order(f'{season_label}', sort='descending'),
+                tooltip=['Player', f'{season_label}', 'week'],
         
             ).properties(
                 width=600,
-                height=team_pg_height
+                height=height
             ).configure_legend(
                 orient='left' # Position the legend on the left
             )
-            st.altair_chart(passing_legend, use_container_width=True)
+            st.altair_chart(legend, use_container_width=True)
+            return legend
         else:
             st.write("No passing data for selection")
 
+    with col1:
+        # PASSING - legend
+        passing_legend = legend_chart(passing, passing_mapping, 'Passing_Yds')
+
         # RUSHING - legend
-        if not rushing.empty:
-            rushing_legend = alt.Chart(rushing).mark_bar(opacity=0).encode(
-                x=alt.X('year_week:O', axis=alt.Axis(title=None)),
-                y='Rushing_Yds:Q',
-                color=alt.Color('Player:N',
-                                scale=alt.Scale(domain=list(rushing_mapping.keys()), 
-                                                range=list(rushing_mapping.values())),
-                                legend=alt.Legend(title="Rushing", orient='left', direction='vertical')
-                                ),
-                order=alt.Order('Season_Rushing_Yds', sort='descending'),
-                tooltip=['Player', 'Season_Rushing_Yds', 'week']
-            ).properties(width=600, height=team_pg_height).configure_legend(orient='left')
-            st.altair_chart(rushing_legend, use_container_width=True)
-        else:
-            st.write("No rushing data for selection")
+        rushing_legend = legend_chart(rushing, rushing_mapping, 'Rushing_Yds')
 
         # RECEIVING - legend
-        if not receiving.empty:
-            receiving_legend = alt.Chart(receiving).mark_bar(opacity=0).encode(
+        receiving_legend = legend_chart(receiving, receiving_mapping, 'Receiving_Yds')
+
+
+    #### Main charts: Passing, Rushing, Receiving breakdowns ###
+
+    # Base Yards Bar Chart
+    def base_yards_bar_chart(df, mapping, yard_type):
+        title = yard_type[:-4] + ' Yards'
+        season_label = 'Season_' + yard_type
+        if not df.empty:
+            yds_chart = alt.Chart(df).mark_bar().encode(
                 x=alt.X('year_week:O', axis=alt.Axis(title=None)),
-                y='Receiving_Yds:Q',
-                color=alt.Color('Player:N',
-                                scale=alt.Scale(domain=list(receiving_mapping.keys()), 
-                                                range=list(receiving_mapping.values())),
-                                legend=alt.Legend(title="Receiving", orient='left', direction='vertical')
-                                ),
-                order=alt.Order('Season_Receiving_Yds', sort='descending'),
-                tooltip=['Player', 'Season_Receiving_Yds', 'week']
-            ).properties(width=600, height=team_pg_height + 150
-                        ).configure_legend(orient='left')
-            st.altair_chart(receiving_legend, use_container_width=True)
+                y=alt.Y(f'{yard_type}:Q', axis=alt.Axis(title=None)),
+                color=alt.Color('Player:N', scale=alt.Scale(domain=list(mapping.keys()), range=list(mapping.values())), legend=None),
+                order=alt.Order(f'{season_label}', sort='descending'),
+                tooltip=['Player', f'{yard_type}', 'year_week']
+            ).properties(title=f'{title}', width=600, height=team_pg_height)
+            st.altair_chart(yds_chart, use_container_width=True)
+            return yds_chart
         else:
-            st.write("No receiving data for selection")
+            st.write(f"No {title} to show.")
 
 
-    # Main charts: Passing, Rushing, Receiving breakdowns
-
-    # Passing yards chart
+    # Yards Bar chart
     with col2:
-        if not passing.empty:
-            passing_yds_chart = alt.Chart(passing).mark_bar().encode(
-                x=alt.X('year_week:O', axis=alt.Axis(title=None)),
-                y=alt.Y('Passing_Yds:Q', axis=alt.Axis(title=None)),
-                color=alt.Color('Player:N', scale=alt.Scale(domain=list(passing_mapping.keys()), range=list(passing_mapping.values())), legend=None),
-                order=alt.Order('Season_Passing_Yds', sort='descending'),
-                tooltip=['Player', 'Passing_Yds', 'year_week']
-            ).properties(title='Passing Yards', width=600, height=team_pg_height)
-            st.altair_chart(passing_yds_chart, use_container_width=True)
-        else:
-            st.write("No passing yards to show.")
+        passing_yds_chart = base_yards_bar_chart(passing, passing_mapping, 'Passing_Yds')
+        rushing_yds_chart = base_yards_bar_chart(rushing, rushing_mapping, 'Rushing_Yds')
+        receiving_yds_chart = base_yards_bar_chart(receiving, receiving_mapping, 'Receiving_Yds')
 
-    # Rushing yards chart
-        if not rushing.empty:
-            rushing_yds_chart = alt.Chart(rushing).mark_bar().encode(
+    # Touchdown Bar Chart
+    def td_bar_chart(df, mapping, yds_type):
+        title = yds_type[:-4] + ' Touchdowns'
+        td_type = yds_type[:-3] + 'TD'
+        season_label = 'Season_' + yds_type
+        if not df.empty:
+            td_chart = alt.Chart(df).mark_bar().encode(
                 x=alt.X('year_week:O', axis=alt.Axis(title=None)),
-                y=alt.Y('Rushing_Yds:Q', axis=alt.Axis(title=None)),
-                color=alt.Color('Player:N', scale=alt.Scale(domain=list(rushing_mapping.keys()), range=list(rushing_mapping.values())), legend=None),
-                order=alt.Order('Season_Rushing_Yds', sort='descending'),
-                tooltip=['Player', 'Rushing_Yds', 'year_week']
-            ).properties(title='Rushing Yards', width=600, height=team_pg_height)
-            st.altair_chart(rushing_yds_chart, use_container_width=True)
+                y=alt.Y(f'{td_type}:Q', axis=alt.Axis(title=None)),
+                color=alt.Color('Player:N', scale=alt.Scale(domain=list(mapping.keys()), range=list(mapping.values())), legend=None),
+                order=alt.Order(f'{season_label}', sort='descending'),
+                tooltip=['Player', f'{td_type}', 'year_week']
+            ).properties(title=f'{title}', width=600, height=team_pg_height)
+            st.altair_chart(td_chart, use_container_width=True)
+            return td_chart
         else:
-            st.write("No rushing yards to show.")
+            st.write(f"No {title} to show.")
 
-    # Receiving yards chart
-        if not receiving.empty:
-            receiving_yds_chart = alt.Chart(receiving).mark_bar().encode(
-                x=alt.X('year_week:O', axis=alt.Axis(title=None)),
-                y=alt.Y('Receiving_Yds:Q', axis=alt.Axis(title=None)),
-                color=alt.Color('Player:N', scale=alt.Scale(domain=list(receiving_mapping.keys()), range=list(receiving_mapping.values())), legend=None),
-                order=alt.Order('Season_Receiving_Yds', sort='descending'),
-                tooltip=['Player', 'Receiving_Yds', 'year_week']
-            ).properties(title='Receiving Yards', width=600, height=team_pg_height)
-            st.altair_chart(receiving_yds_chart, use_container_width=True)
-        else:
-            st.write("No receiving yards to show.")
 
     with col3:
-    ### PASSING
-        passing_td_chart = alt.Chart(passing).mark_bar().encode(
-            x=alt.X('year_week:O',axis=alt.Axis(title=None)),
-            y=alt.Y('Passing_TD:Q',axis=alt.Axis(title=None)),
-            color=alt.Color('Player:N',scale=alt.Scale(domain=list(passing_mapping.keys()), range=list(passing_mapping.values())),legend=None),
-            order=alt.Order('Season_Passing_Yds', sort='descending'),
-            tooltip=['Player', 'Passing_TD', 'year_week']
-        ).properties(
-            title='Passing Touchdowns',
-            width=600,
-            height=team_pg_height
-        )
+    ### Touchdown Bar Chart
+        passing_td_chart = td_bar_chart(passing, passing_mapping, 'Passing_Yds')
+        rushing_td_chart = td_bar_chart(rushing, rushing_mapping, 'Rushing_Yds')
+        receiving_td_chart = td_bar_chart(receiving, receiving_mapping, 'Receiving_Yds')
 
-        # Display the chart in Streamlit
-        st.altair_chart(passing_td_chart, use_container_width=True) 
-
-    ### RUSHING
-        rushing_td_chart = alt.Chart(rushing).mark_bar().encode(
-            x=alt.X('year_week:O',axis=alt.Axis(title=None)),
-            y=alt.Y('Rushing_TD:Q',axis=alt.Axis(title=None)),
-            color=alt.Color('Player:N', scale=alt.Scale(domain=list(rushing_mapping.keys()), range=list(rushing_mapping.values())),legend=None),
-            order=alt.Order('Season_Rushing_Yds', sort='descending'),
-            tooltip=['Player', 'Rushing_TD', 'year_week']
-        ).properties(
-            title='Rushing Touchdowns',
-            width=600,
-            height=team_pg_height
-        )
-
-        # Display the chart in Streamlit
-        st.altair_chart(rushing_td_chart, use_container_width=True)
-
-    ### RECEIVING
-        receiving_td_chart = alt.Chart(receiving).mark_bar().encode(
-            x=alt.X('year_week:O',axis=alt.Axis(title=None)),
-            y=alt.Y('Receiving_TD:Q',axis=alt.Axis(title=None)),
-            color=alt.Color('Player:N', scale=alt.Scale(domain=list(receiving_mapping.keys()), range=list(receiving_mapping.values())),legend=None),
-            order=alt.Order('Season_Receiving_Yds', sort='descending'),
-            tooltip=['Player', 'Receiving_TD', 'year_week']
-        ).properties(
-            title='Receiving Touchdowns',
-            width=600,
-            height=team_pg_height
-        )
-
-        # Display the chart in Streamlit
-        st.altair_chart(receiving_td_chart, use_container_width=True) 
-
-  
-
+    def other_bar_chart(df, mapping, yds_type):
+        title_split = yds_type.split('_')
+        title = title_split[0] + ' + ' + title_split[1] + ' Yards'
+        season_label = 'Season_' + yds_type[:7] + '_Yds'
+        if not df.empty:
+            other_yds_chart = alt.Chart(df).mark_bar().encode(
+                x=alt.X('year_week:O',axis=alt.Axis(title=None)),
+                y=alt.Y(f'{yds_type}:Q',axis=alt.Axis(title=None)),
+                color=alt.Color('Player:N', scale=alt.Scale(domain=list(mapping.keys()), range=list(mapping.values())),legend=None),
+                order=alt.Order(f'{season_label}', sort='descending'),
+                tooltip=['Player', f'{yds_type}', 'year_week']
+            ).properties(
+                title=f'{title}',
+                width=600,
+                height=team_pg_height
+            )
+            st.altair_chart(other_yds_chart, use_container_width=True) 
+            return other_yds_chart
+        
+        else:
+            st.write(f"No {title} to show.")
     with col4:
-    ### PASSING
-        passing_rushing_yds_chart = alt.Chart(passing).mark_bar().encode(
-            x=alt.X('year_week:O',axis=alt.Axis(title=None)),
-            y=alt.Y('Passing_Rushing_Yds:Q',axis=alt.Axis(title=None)),
-            color=alt.Color('Player:N', scale=alt.Scale(domain=list(passing_mapping.keys()), range=list(passing_mapping.values())),legend=None),
-            order=alt.Order('Season_Passing_Yds', sort='descending'),
-            tooltip=['Player', 'Passing_Rushing_Yds', 'year_week']
-        ).properties(
-            title='Passing + Rushing Yards',
-            width=600,
-            height=team_pg_height
-        )
+    ### OTHER BAR CHART
+        passing_rushing_yds_chart = other_bar_chart(passing, passing_mapping, 'Passing_Rushing_Yds')
+        rushing_receiving_yds_chart = other_bar_chart(rushing, rushing_mapping, 'Rushing_Receiving_Yds')
 
-        # Display the chart in Streamlit
-        st.altair_chart(passing_rushing_yds_chart, use_container_width=True) 
-
-    ### RUSHING
-        rushing_receiving_yds_chart = alt.Chart(rushing).mark_bar().encode(
-            x=alt.X('year_week:O',axis=alt.Axis(title=None)),
-            y=alt.Y('Rushing_Receiving_Yds:Q',axis=alt.Axis(title=None)),
-            color=alt.Color('Player:N', scale=alt.Scale(domain=list(rushing_mapping.keys()), range=list(rushing_mapping.values())),legend=None),
-            order=alt.Order('Season_Rushing_Yds', sort='descending'),
-            tooltip=['Player', 'Rushing_Receiving_Yds', 'year_week']
-        ).properties(
-            title='Rushing + Receiving Yards',
-            width=600,
-            height=team_pg_height
-        )
-
-        # Display the chart in Streamlit
-        st.altair_chart(rushing_receiving_yds_chart, use_container_width=True) 
-
-    ### RECEIVING
+    ### OTHER BAR CHART - RECEIVING
         receiving_target_chart = alt.Chart(receiving).mark_bar().encode(
             x=alt.X('year_week:O',axis=alt.Axis(title=None)),
             y=alt.Y('Receiving_Rec:Q',axis=alt.Axis(title=None)),
