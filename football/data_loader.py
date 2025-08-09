@@ -102,7 +102,7 @@ def load_data():
 
     # season aggregates used across pages
     try:
-        df_aggregates = df.groupby(['Player','year']).sum(numeric_only=True).reset_index()
+        df_aggregates = df.groupby(['Player','year']).sum().reset_index()
         df_aggregates = df_aggregates[['Player','Team','year','Passing_Yds','Rushing_Yds','Receiving_Yds']]
         df_aggregates = df_aggregates.rename({'Passing_Yds':'Season_Passing_Yds',
                                               'Rushing_Yds':'Season_Rushing_Yds',
@@ -113,7 +113,7 @@ def load_data():
         pass
 
     try:
-        df_total = df.groupby(['Player','Team']).sum(numeric_only=True).reset_index()
+        df_total = df.groupby(['Player','Team']).sum().reset_index()
         df_total = df_total[['Player','Team','Passing_Yds','Rushing_Yds','Receiving_Yds']]
         df_total = df_total.rename({'Passing_Yds':'Total_Passing_Yds',
                                     'Rushing_Yds':'Total_Rushing_Yds',
