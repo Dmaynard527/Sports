@@ -14,6 +14,11 @@ def render(data):
     logo_path = data['logo_path']
 
     st.title("Upcoming Games")
+    # distinct teams
+    teams = sorted(list(df['Real_Team'].unique()))
+    team_selected = st.sidebar.selectbox("Select a team", teams)
+    upcoming_games = upcoming_games[upcoming_games['Home_Team'].str.contains(team_selected) | upcoming_games['Away_Team'].str.contains(team_selected)].reset_index()
+
 
     if upcoming_games.empty:
         st.info("No upcoming_games file found for current season.")
@@ -30,16 +35,24 @@ def render(data):
     completed_games['team_score'] = np.nan
 
     # populate for both away & home
-    for t in [away_team, home_team]:
-        completed_games.loc[completed_games['team1'] == t, 'opponent_team'] = completed_games.loc[completed_games['team1'] == t, 'team2']
-        completed_games.loc[completed_games['team2'] == t, 'opponent_team'] = completed_games.loc[completed_games['team2'] == t, 'team1']
-        completed_games.loc[completed_games['team1'] == t, 'searched_team'] = completed_games.loc[completed_games['team1'] == t, 'team1']
-        completed_games.loc[completed_games['team2'] == t, 'searched_team'] = completed_games.loc[completed_games['team2'] == t, 'team2']
-
-        completed_games.loc[completed_games['team1'] == t, 'opponent_score'] = completed_games.loc[completed_games['team1'] == t, 'opp_score']
-        completed_games.loc[completed_games['team2'] == t, 'opponent_score'] = completed_games.loc[completed_games['team2'] == t, 'tm_score']
-        completed_games.loc[completed_games['team1'] == t, 'team_score'] = completed_games.loc[completed_games['team1'] == t, 'tm_score']
-        completed_games.loc[completed_games['team2'] == t, 'team_score'] = completed_games.loc[completed_games['team2'] == t, 'opp_score']
+    for team in [away_team, home_team]:
+        # Mask for when this team is team1 or team2
+        mask_team1 = completed_games['team1'] == team
+        mask_team2 = completed_games['team2'] == team
+        
+        # Opponent team
+        completed_games.loc[mask_team1, 'opponent_team'] = completed_games.loc[mask_team1, 'team2']
+        completed_games.loc[mask_team2, 'opponent_team'] = completed_games.loc[mask_team2, 'team1']
+        
+        # Searched team
+        completed_games.loc[mask_team1, 'searched_team'] = completed_games.loc[mask_team1, 'team1']
+        completed_games.loc[mask_team2, 'searched_team'] = completed_games.loc[mask_team2, 'team2']
+        
+        # Scores
+        completed_games.loc[mask_team1, 'opponent_score'] = completed_games.loc[mask_team1, 'opp_score']
+        completed_games.loc[mask_team2, 'opponent_score'] = completed_games.loc[mask_team2, 'tm_score']
+        completed_games.loc[mask_team1, 'team_score'] = completed_games.loc[mask_team1, 'tm_score']
+        completed_games.loc[mask_team2, 'team_score'] = completed_games.loc[mask_team2, 'opp_score']
 
     completed_games_sub = completed_games[['year_week','opponent_team','searched_team','opponent_score','team_score']].copy()
     completed_scores = completed_games_sub[completed_games_sub['opponent_team'].notnull()].copy()
@@ -57,8 +70,10 @@ def render(data):
     passing_off = pd.merge(passing, completed_games_sub, how='inner', left_on=['year_week','Real_Team'], right_on=['year_week','searched_team'])
     passing_off['team_category'] = 'Offense ' + passing_off['searched_team']
     passing_past = pd.concat([passing_off, passing_def], axis=0)
+
     passing_awayteam = passing_past[passing_past['team_category'].isin(['Offense ' + away_team, 'Defense ' + home_team])]
     passing_hometeam = passing_past[passing_past['team_category'].isin(['Offense ' + home_team, 'Defense ' + away_team])]
+
     total_passing_away = passing_awayteam.groupby(['year_week','Player','team_category']).agg({'Passing_Yds':'sum'}).reset_index().sort_values(['year_week','Passing_Yds'], ascending=[True, False])
     total_passing_home = passing_hometeam.groupby(['year_week','Player','team_category']).agg({'Passing_Yds':'sum'}).reset_index().sort_values(['year_week','Passing_Yds'], ascending=[True, False])
 
@@ -101,6 +116,7 @@ def render(data):
     with othercols[1]:
         away_score_against = round(avg_scores.loc[avg_scores['searched_team'] == away_team, 'opponent_score'].values[0], 1) if not avg_scores[avg_scores['searched_team'] == away_team].empty else np.nan
         away_vs = away_score - away_score_against if (not np.isnan(away_score) and not np.isnan(away_score_against)) else np.nan
+        away_vs = round(away_vs, 1)
         st.metric("Average Score (Away)", away_score, f"{away_vs}, Avg Differential")
     with othercols[2]:
         # show away logo & record
@@ -116,7 +132,8 @@ def render(data):
             st.markdown(f'''<div style="width: 75px; height: 75px; display:flex; align-items:center; justify-content:center;">{svg_content}</div>''', unsafe_allow_html=True)
         away_wins = completed_scores[(completed_scores['WinLoss']=='Win') & (completed_scores['searched_team']==away_team)]['year_week'].count()
         away_losses = completed_scores[(completed_scores['WinLoss']=='Loss') & (completed_scores['searched_team']==away_team)]['year_week'].count()
-        st.markdown(f"{away_wins}-{away_losses}")
+        away_record = str(away_wins) + "-" + str(away_losses)
+        st.markdown(f'''<div style="width: 75px; height: 10px;  justify-content: center;text-align: center;">{away_record}</div>''', unsafe_allow_html=True)
 
     with othercols[3]:
         st.metric('', "@")
@@ -133,15 +150,15 @@ def render(data):
             st.markdown(f'''<div style="width: 75px; height: 75px; display:flex; align-items:center; justify-content:center;">{svg_content}</div>''', unsafe_allow_html=True)
         home_wins = completed_scores[(completed_scores['WinLoss']=='Win') & (completed_scores['searched_team']==home_team)]['year_week'].count()
         home_losses = completed_scores[(completed_scores['WinLoss']=='Loss') & (completed_scores['searched_team']==home_team)]['year_week'].count()
-        st.markdown(f"{home_wins}-{home_losses}")
+        home_record = str(home_wins) + "-" + str(home_losses)
+        st.markdown(f'''<div style="width: 75px; height: 10px;  justify-content: center;text-align: center;">{home_record}</div>''', unsafe_allow_html=True)
 
     with othercols[5]:
         home_vs = (home_score - (round(avg_scores.loc[avg_scores['searched_team'] == home_team, 'opponent_score'].values[0],1) if not avg_scores[avg_scores['searched_team'] == home_team].empty else 0))
         st.metric("Average Score (Home)", home_score, f"{home_vs}, Avg Differential")
 
     st.markdown("---")
-    st.subheader("Player breakdown charts (Passing, Rushing, Receiving) per week")
-    left_col, mid_col, right_col = st.columns([1,1,1])
+    # st.subheader("Player breakdown charts (Passing, Rushing, Receiving) per week")
 
     # use colors extracted from color_df if present
     def team_color(team_name, fallback):
@@ -155,9 +172,78 @@ def render(data):
     top_team_color_right = team_color(home_team, '#1f77b4')
     bottom_team_color_right = team_color(away_team, '#d62728')
 
-    chart_ht = 225
+#########################################
+    up_col1 , up_col2 , up_col3, up_col4 = st.columns([1, 5, 5, 1])
+
+    max_pass_value = passing_past.groupby(['year_week','team_category']).sum()['Passing_Yds'].max()
+    pass_limit = round(max_pass_value / 50) * 50
+    max_rush_value = rushing_past.groupby(['year_week','team_category']).sum()['Rushing_Yds'].max()
+    rush_limit = round(max_rush_value / 50) * 50
+    max_rec_value = receiving_past.groupby(['year_week','team_category']).sum()['Receiving_Yds'].max()
+    rec_limit = round(max_rec_value / 50) * 50
+    chart_ht = 200
+    with up_col1:
+        away_top_pass = passing_awayteam[passing_awayteam['searched_team']==away_team]
+        away_top_pass_qb = away_top_pass.groupby(['Player']).agg({'Season_Passing_Yds': 'max'})
+        away_top_pass_qb = away_top_pass_qb.reset_index().sort_values('Season_Passing_Yds', ascending=False)['Player'].values[0]
+        away_top_pass_avg = away_top_pass[away_top_pass['Player']==away_top_pass_qb].groupby(['Player']).agg({'Passing_Yds': 'mean'}).reset_index()['Passing_Yds'].values[0]
+        away_top_pass_avg = round(away_top_pass_avg,1)
+        latest_away_year_week = away_top_pass.sort_values('year_week',ascending=False)['year_week'].values[0]
+        away_last_week_pass_yds = away_top_pass.loc[(away_top_pass['Player']==away_top_pass_qb) & (away_top_pass['year_week']==latest_away_year_week),'Passing_Yds']
+        if not away_last_week_pass_yds.empty:
+            away_last_week_pass_yds = away_last_week_pass_yds.values[0]
+        else:
+            away_last_week_pass_yds = 0
+        away_pass_yds_diff = round(away_last_week_pass_yds - away_top_pass_avg,1)
+        st.write("Top Passer")
+        st.metric(away_top_pass_qb,away_top_pass_avg,f"{away_pass_yds_diff} Trending")
+
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+
+        away_top_rush = rushing_awayteam[rushing_awayteam['searched_team']==away_team]
+        away_top_rush_rb = away_top_rush.groupby(['Player']).agg({'Season_Rushing_Yds': 'max'})
+        away_top_rush_rb = away_top_rush_rb.reset_index().sort_values('Season_Rushing_Yds', ascending=False)['Player'].values[0]
+        away_top_rush_avg = away_top_rush[away_top_rush['Player']==away_top_rush_rb].groupby(['Player']).agg({'Rushing_Yds': 'mean'}).reset_index()['Rushing_Yds'].values[0]
+        away_top_rush_avg = round(away_top_rush_avg,1)
+        away_last_week_rush_yds = away_top_rush.loc[(away_top_rush['Player']==away_top_rush_rb) & (away_top_rush['year_week']==latest_away_year_week),'Rushing_Yds']
+        if not away_last_week_rush_yds.empty:
+            away_last_week_rush_yds = away_last_week_rush_yds.values[0]
+        else:
+            away_last_week_rush_yds = 0
+
+        away_rush_yds_diff = round(away_last_week_rush_yds - away_top_rush_avg,1)
+        st.write("Top Rusher")
+        st.metric(away_top_rush_rb,away_top_rush_avg,f"{away_rush_yds_diff} Trending")
+
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+
+        away_top_rec = receiving_awayteam[receiving_awayteam['searched_team']==away_team]
+        away_top_rec_wr = away_top_rec.groupby(['Player']).agg({'Season_Receiving_Yds': 'max'})
+        away_top_rec_wr = away_top_rec_wr.reset_index().sort_values('Season_Receiving_Yds', ascending=False)['Player'].values[0]
+        away_top_rec_avg = away_top_rec[away_top_rec['Player']==away_top_rec_wr].groupby(['Player']).agg({'Receiving_Yds': 'mean'}).reset_index()['Receiving_Yds'].values[0]
+        away_top_rec_avg = round(away_top_rec_avg,1)
+        away_last_week_rec_yds = away_top_rec.loc[(away_top_rec['Player']==away_top_rec_wr) & (away_top_rec['year_week']==latest_away_year_week),'Receiving_Yds']
+        if not away_last_week_rec_yds.empty:
+            away_last_week_rec_yds = away_last_week_rec_yds.values[0]
+        else:
+            away_last_week_rec_yds = 0
+        away_rec_yds_diff = round(away_last_week_rec_yds - away_top_rec_avg,1)
+        st.write("Top Receiver")
+        st.metric(away_top_rec_wr,away_top_rec_avg,f"{away_rec_yds_diff} Trending")
+
+#######################################################3
     # show three charts in center (passing, rushing, receiving) for away team
-    with mid_col:
+    with up_col2:
         if not total_passing_away.empty:
             player_breakdown_passing_away = alt.Chart(total_passing_away).mark_bar().encode(
                 x=alt.X('year_week:O', axis=alt.Axis(title=None)),
@@ -191,7 +277,7 @@ def render(data):
             ).properties(title='Player Receiving Yards per Week', height=chart_ht)
             st.altair_chart(player_breakdown_receiving_away, use_container_width=True)
 
-    with right_col:
+    with up_col3:
         if not total_passing_home.empty:
             player_breakdown_passing_home = alt.Chart(total_passing_home).mark_bar().encode(
                 x=alt.X('year_week:O', axis=alt.Axis(title=None)),
@@ -225,4 +311,63 @@ def render(data):
             ).properties(title='Player Receiving Yards per Week', height=chart_ht)
             st.altair_chart(player_breakdown_receiving_home, use_container_width=True)
 
-    st.success("Upcoming Games loaded.")
+    with up_col4:
+        home_top_pass = passing_hometeam[passing_hometeam['searched_team']==home_team]
+        home_top_pass_qb = home_top_pass.groupby(['Player']).agg({'Season_Passing_Yds': 'max'})
+        home_top_pass_qb = home_top_pass.reset_index().sort_values('Season_Passing_Yds', ascending=False)['Player'].values[0]
+        home_top_pass_avg = home_top_pass[home_top_pass['Player']==home_top_pass_qb].groupby(['Player']).agg({'Passing_Yds': 'mean'}).reset_index()['Passing_Yds'].values[0]
+        home_top_pass_avg = round(home_top_pass_avg,1)
+        latest_home_year_week = home_top_pass.sort_values('year_week',ascending=False)['year_week'].values[0]
+        home_last_week_pass_yds = home_top_pass.loc[(home_top_pass['Player']==home_top_pass_qb) & (home_top_pass['year_week']==latest_home_year_week),'Passing_Yds']
+        if not home_last_week_pass_yds.empty:
+            home_last_week_pass_yds = home_last_week_pass_yds.values[0]
+        else:
+            home_last_week_pass_yds = 0
+        home_pass_yds_diff = round(home_last_week_pass_yds - home_top_pass_avg,1)
+        st.write("Top Passer")
+        st.metric(home_top_pass_qb,home_top_pass_avg,f"{home_pass_yds_diff} Trending")
+
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+
+        home_top_rush = rushing_hometeam[rushing_hometeam['searched_team']==home_team]
+        home_top_rush_rb = home_top_rush.groupby(['Player']).agg({'Season_Rushing_Yds': 'max'})
+        home_top_rush_rb = home_top_rush_rb.reset_index().sort_values('Season_Rushing_Yds', ascending=False)['Player'].values[0]
+        home_top_rush_avg = home_top_rush[home_top_rush['Player']==home_top_rush_rb].groupby(['Player']).agg({'Rushing_Yds': 'mean'}).reset_index()['Rushing_Yds'].values[0]
+        home_top_rush_avg = round(home_top_rush_avg,1)
+        home_last_week_rush_yds = home_top_rush.loc[(home_top_rush['Player']==home_top_rush_rb) & (home_top_rush['year_week']==latest_home_year_week),'Rushing_Yds']
+        if not home_last_week_rush_yds.empty:
+            home_last_week_rush_yds = home_last_week_rush_yds.values[0]
+        else:
+            home_last_week_rush_yds = 0
+
+        home_rush_yds_diff = round(home_last_week_rush_yds - home_top_rush_avg,1)
+        st.write("Top Rusher")
+        st.metric(home_top_rush_rb,home_top_rush_avg,f"{home_rush_yds_diff} Trending")
+
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+        st.write("")
+
+        home_top_rec = receiving_hometeam[receiving_hometeam['searched_team']==home_team]
+        home_top_rec_wr = home_top_rec.groupby(['Player']).agg({'Season_Receiving_Yds': 'max'})
+        home_top_rec_wr = home_top_rec_wr.reset_index().sort_values('Season_Receiving_Yds', ascending=False)['Player'].values[0]
+        home_top_rec_avg = home_top_rec[home_top_rec['Player']==home_top_rec_wr].groupby(['Player']).agg({'Receiving_Yds': 'mean'}).reset_index()['Receiving_Yds'].values[0]
+        home_top_rec_avg = round(home_top_rec_avg,1)
+        home_last_week_rec_yds = home_top_rec.loc[(home_top_rec['Player']==home_top_rec_wr) & (home_top_rec['year_week']==latest_home_year_week),'Receiving_Yds']
+        if not home_last_week_rec_yds.empty:
+            home_last_week_rec_yds = home_last_week_rec_yds.values[0]
+        else:
+            home_last_week_rec_yds = 0
+        home_rec_yds_diff = round(home_last_week_rec_yds - home_top_rec_avg,1)
+        st.write("Top Receiver")
+        st.metric(home_top_rec_wr,home_top_rec_avg,f"{home_rec_yds_diff} Trending")
+
+    # st.success("Upcoming Games loaded.")
