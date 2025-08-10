@@ -17,15 +17,45 @@ def render(data):
     teams = data['teams']
     logo_path = data['logo_path']
     new_year = data['current_year']
+    completed_games = data['completed_games']
 
-    st.title("Team Page")
-
+    title_col1, title_col2, title_col3, title_col4 = st.columns([4,1,0.9,8])
     # Sidebar: player selection for the selected team
     team_selected = st.sidebar.selectbox("Select a team", teams, index=0)
+
+    with title_col1: 
+        st.title(f"{team_selected}")
+        # compute record metric like original
+    winner_ct = len(completed_games[completed_games['team1'] == team_selected])
+    loser_ct = len(completed_games[completed_games['team2'] == team_selected])
+    record = f"{winner_ct} - {loser_ct}"
+
+    # logo rendering
+    svg_selected = team_selected.lower().replace(' ', '-') + '-logo.svg'
+    svg_path = os.path.join(logo_path, svg_selected)
+    svg_content = ''
+    try:
+        with open(svg_path, 'r') as f:
+            svg_content = f.read().replace('width="700"', 'width="100"').replace('height="400"', 'height="100"')
+    except Exception:
+        svg_content = ''
+
+    with title_col2:
+        if svg_content:
+            st.markdown(f'''<div style="width: 100px; height: 100px; overflow: hidden; display:flex; align-items:center; justify-content:center;">{svg_content}</div>''', unsafe_allow_html=True)
+    with title_col3:
+        st.metric('', record)
+
 
     # Build roster lists and active roster for the team
     team_roster = sorted(list(df.loc[df['Real_Team'] == team_selected, 'Player'].unique()))
     active_roster = sorted(list(df.loc[(df['year'] == str(new_year)) & (df['Real_Team'] == team_selected), 'Player'].unique()))
+    active_roster_value = ', '.join(active_roster)
+    active_roster_header = f"Team: {team_selected} | Active Roster:{active_roster_value}"
+    st.markdown(f"<h5 style='font-size: 14px;'>{active_roster_header}</h5>", unsafe_allow_html=True)
+    st.markdown("---")
+
+
 
     # Generate colors using a colormap
     num_players = len(active_roster)
@@ -39,10 +69,19 @@ def render(data):
         player_selection = st.multiselect('Players',
                                         team_roster, 
                                         default=active_roster)
+        
+    # year multiselect
+    year_list = sorted(list(df['year'].unique()))
+    with st.sidebar.expander("Select year(s)", expanded=False):
+        selected_options = st.multiselect('Years', year_list, default=year_list)
+
     # Filter stat DataFrames
     passing = df[df.get('Passing_Yds', 0) > 0].copy()
     rushing = df[df.get('Rushing_Yds', 0) > 0].copy()
     receiving = df[df.get('Receiving_Yds', 0) > 0].copy()
+    passing = passing.loc[passing['year'].isin(selected_options)]
+    rushing = rushing.loc[rushing['year'].isin(selected_options)]
+    receiving = receiving.loc[receiving['year'].isin(selected_options)]
 
     if player_selection:
         passing = passing[passing['Player'].isin(player_selection)]
