@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from streamlit_folium import st_folium
 import os
 from utils import highlight_team, real_teams, target_lines
+import folium
 
 def render(data):
     df = data['df'].copy()
@@ -26,7 +27,6 @@ def render(data):
     middle1, middle2, middle3 = st.columns([0.75,5,5])
 
     # Create folium map and display in middle2 (so click sets map selection)
-    import folium
     m = folium.Map(location=[39.8283, -98.5795], zoom_start=4)
     for _, loc in location_df.iterrows():
         try:
@@ -49,9 +49,18 @@ def render(data):
         else:
             map_selection_index = 0
 
+    team_color = '#1f77b4'
     # Sidebar filters include team selection and years (same as original)
     team_selected = st.sidebar.selectbox("Select a team", teams, index=map_selection_index)
-    team_color = '#1f77b4'
+
+    # team_roster = sorted(list(df.loc[df['Real_Team']==team_selected,'Player'].unique()))
+    active_roster = sorted(list(df.loc[(df['year']==str(new_year)) & (df['Real_Team']==team_selected),'Player'].unique()))
+    active_roster_value = ', '.join(active_roster)
+    active_roster_header = f"Team: {team_selected} | Active Roster:{active_roster_value}"
+    with top1:
+        st.markdown(f"<h5 style='font-size: 14px;'>{active_roster_header}</h5>", unsafe_allow_html=True)
+        st.markdown("---")
+
     try:
         team_color = color_df[color_df['NFL Team Name'] == team_selected]['Color 1'].values[0]
     except Exception:
@@ -365,7 +374,16 @@ def render(data):
                 color_condition = alt.condition(alt.datum.NFL_Team == team_selected, alt.value(team_color), alt.value('darkgrey'))
                 proj = alt.Chart(top_for_chart).mark_bar().encode(x=alt.X('sum(Projected_Pass_Yds):Q', axis=alt.Axis(title=None)),
                                                                  y=alt.Y('Player:N', sort=alt.EncodingSortField(field='Pass_Yds', op='sum', order='descending')),
-                                                                 color=alt.value('lightgrey'))
+                                                                 color=alt.value('lightgrey'),
+                                                                 tooltip=[
+                                                                            'Player:N',
+                                                                            'Projected_Pass_Yds:Q',
+                                                                            'NFL_Team:N'
+                                                                            ]
+                                                                    ).properties(
+                                                                        title='Cumulative Passing Yards',
+                                                                        height=400
+                                                                    )
                 actual = alt.Chart(top_for_chart).mark_bar().encode(x=alt.X('sum(Pass_Yds):Q', axis=alt.Axis(title=None)),
                                                                      y=alt.Y('Player:N', sort=alt.EncodingSortField(field='Pass_Yds', op='sum', order='descending')),
                                                                      color=color_condition,
@@ -391,7 +409,16 @@ def render(data):
                 color_condition = alt.condition(alt.datum.NFL_Team == team_selected, alt.value(team_color), alt.value('darkgrey'))
                 proj = alt.Chart(top_for_chart).mark_bar().encode(x=alt.X('sum(Projected_Rush_Yds):Q', axis=alt.Axis(title=None)),
                                                                  y=alt.Y('Player:N', sort=alt.EncodingSortField(field='Rush_Yds', op='sum', order='descending')),
-                                                                 color=alt.value('lightgrey'))
+                                                                 color=alt.value('lightgrey'),
+                                                                 tooltip=[
+                                                                            'Player:N',
+                                                                            'Projected_Rush_Yds:Q',
+                                                                            'NFL_Team:N'
+                                                                            ]
+                                                                    ).properties(
+                                                                        title='Cumulative Rushing Yards',
+                                                                        height=400
+                                                                    )
                 actual = alt.Chart(top_for_chart).mark_bar().encode(x=alt.X('sum(Rush_Yds):Q', axis=alt.Axis(title=None)),
                                                                      y=alt.Y('Player:N', sort=alt.EncodingSortField(field='Rush_Yds', op='sum', order='descending')),
                                                                      color=color_condition,
@@ -414,7 +441,16 @@ def render(data):
                 color_condition = alt.condition(alt.datum.NFL_Team == team_selected, alt.value(team_color), alt.value('darkgrey'))
                 proj = alt.Chart(top_for_chart).mark_bar().encode(x=alt.X('sum(Projected_Rec_Yds):Q', axis=alt.Axis(title=None)),
                                                                  y=alt.Y('Player:N', sort=alt.EncodingSortField(field='Rec_Yds', op='sum', order='descending')),
-                                                                 color=alt.value('lightgrey'))
+                                                                 color=alt.value('lightgrey'),
+                                                                 tooltip=[
+                                                                            'Player:N',
+                                                                            'Projected_Rec_Yds:Q',
+                                                                            'NFL_Team:N'
+                                                                            ]
+                                                                    ).properties(
+                                                                        title='Cumulative Receiving Yards',
+                                                                        height=400
+                                                                    )
                 actual = alt.Chart(top_for_chart).mark_bar().encode(x=alt.X('sum(Rec_Yds):Q', axis=alt.Axis(title=None)),
                                                                      y=alt.Y('Player:N', sort=alt.EncodingSortField(field='Rec_Yds', op='sum', order='descending')),
                                                                      color=color_condition,

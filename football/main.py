@@ -1,8 +1,7 @@
 # main.py
 import streamlit as st
 from data_loader import load_data
-from screens import home, upcoming_games, team, player
-# , bets, fantasy_football
+from screens import home, upcoming_games, team, player, bets, fantasy_football
 
 st.set_page_config(layout="wide", page_title="NFL Stats Dashboard")
 
@@ -24,7 +23,7 @@ elif page == "Team":
     team.render(data)
 elif page == "Player":
     player.render(data)
-# elif page == "Bets":
-#     bets.render(data)
-# elif page == "Fantasy Football":
-#     fantasy_football.render(data)
+elif page == "Bets":
+    bets.render(data)
+elif page == "Fantasy Football":
+    fantasy_football.render(data)
