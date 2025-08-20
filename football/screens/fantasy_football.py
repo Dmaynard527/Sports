@@ -79,13 +79,13 @@ def render(data):
         df = df.copy()
 
                 # Create 'Player_team' column
-        df['Player_team'] = np.where(df['Team'] == df['tm_alias'], 
+        df['Player_team'] = np.where((df['Team'] == df['tm_alias']) | (df['Team'].str.lower() == df['tm_alt_alias']), 
                                     df['tm_market'] + ' ' + df['tm_name'], 
                                     df['opp_market'] + ' ' + df['opp_name']
                                     )
 
         # Create 'Opposing_team' column
-        df['Opposing_team'] = np.where(df['Team'] == df['tm_alias'], 
+        df['Opposing_team'] = np.where((df['Team'] == df['tm_alias']) | (df['Team'].str.lower() == df['tm_alt_alias']), 
                                     df['opp_market'] + ' ' + df['opp_name'], 
                                     df['tm_market'] + ' ' + df['tm_name']
                                     )
@@ -116,7 +116,7 @@ def render(data):
     yearly_totals = (
         top_players
         .drop_duplicates(subset=['Player', 'year'])
-        [['Player', 'year', 'total_half_ppr', 'avg_half_ppr']]
+        [['Player', 'Player_team', 'year', 'total_half_ppr', 'avg_half_ppr']]
         .sort_values(['year', 'total_half_ppr'], ascending=[True, False]) 
     )
 
@@ -154,10 +154,9 @@ def render(data):
     yearly_totals_top50 = yearly_totals[yearly_totals['Player'].isin(combined_player_list)]
 
     yearly_totals_top50['label_to_show'] = yearly_totals_top50.apply(
-        lambda row: round(row['avg_half_ppr'],0) if row['year'] == latest_year else '',
+        lambda row: round(row['avg_half_ppr'], 0) if row['year'] == latest_year else np.nan,
         axis=1
     )
-
     # Plot
     ######### BAR PLOT ##########
     fig = px.bar(
@@ -192,6 +191,38 @@ def render(data):
     
     fig.update_layout(height=ht_df)
     st.plotly_chart(fig)
+    year_list = [
+                    latest_year,
+                    str(int(latest_year) - 1),
+                    str(int(latest_year) - 2),
+                    str(int(latest_year) - 3),
+                    str(int(latest_year) - 4)
+                ]
+    yearly_totals_top50_recent_year = yearly_totals_top50[yearly_totals_top50['year'].isin(year_list)]
+    yearly_totals_top50_recent_year = yearly_totals_top50_recent_year.sort_values("total_half_ppr", ascending=False)
+    yearly_totals_top50_recent_year["Rank"] = yearly_totals_top50_recent_year.groupby('year')["total_half_ppr"].rank(ascending=False, method="first")   
+
+    # -----------------------
+    # Scatter plot
+    # -----------------------
+
+    # Line chart showing gaps between ranks
+    st.subheader("Gaps Between Players")
+    hover_columns = ["year", "Rank", "Player", "Player_team", "total_half_ppr"]
+    line_fig = px.line(
+        yearly_totals_top50_recent_year,
+        x="Rank",
+        y="total_half_ppr",
+        color="year",
+        facet_col="year",
+        markers=True,
+        text='Player',
+        hover_data={col: True for col in hover_columns},
+        title=f"Fantasy Points Gap by Player ({', '.join(year_list)})"
+    )
+    line_fig.update_traces(textposition="top center")
+    st.plotly_chart(line_fig, use_container_width=True)
+    #### DEEPER DIVE per Player ####
     
     selected_player = st.selectbox("Choose a Player For a Deeper Dive", combined_player_list)
 
@@ -252,4 +283,6 @@ def render(data):
     fig.update_layout(height=ht_df - 240)
     st.plotly_chart(fig)
 
+    # Create dataframe for player specific stat
+    st.dataframe(filtered_player_df)
 
